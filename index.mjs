@@ -7,7 +7,9 @@ import { readdir, readFile, writeFile } from "node:fs/promises";
 
 const dataDir = process.env.DATA_PATH;
 const cacheDir = process.env.CACHE_PATH;
+const enableDebug = !!process.env.DEBUG;
 const validMethods = ["OPTIONS", "GET"];
+const log = enableDebug ? console.log : () => {};
 
 if (!cacheDir) {
   throw new Error("CACHE_PATH must be defined");
@@ -19,6 +21,7 @@ if (!dataDir) {
 
 createServer(async function (request, response) {
   if (validMethods.includes(request.method) === false) {
+    log("invalid method", request.method);
     return notFound(response);
   }
 
@@ -33,6 +36,7 @@ createServer(async function (request, response) {
   const [scope, name, requestedVersion] = parts;
 
   if (!validateScope(scope) && validatePackageName(name)) {
+    log("invalid scope or package", scope, name);
     return notFound(response);
   }
 
@@ -41,6 +45,7 @@ createServer(async function (request, response) {
     const manifest = await generateManifest(scope, name, host);
 
     if (!manifest) {
+      log("invalid manifest", scope, name);
       return notFound(response);
     }
 
@@ -55,6 +60,7 @@ createServer(async function (request, response) {
   // [workingDir]/@foo/bar/0.1.0.mjs > @foo/bar/0.1.0.tgz
   const version = parse(requestedVersion).name;
   if (!validateVersion(version)) {
+    log("invalid version", requestedVersion);
     return notFound(response);
   }
 
@@ -62,17 +68,9 @@ createServer(async function (request, response) {
   const file = join(folder, version + ".mjs");
 
   if (!existsSync(file)) {
+    log("file not found", scope, name, version);
     return notFound(response);
   }
-
-  const content = await readFile(file, "utf-8");
-  const dependencies = await findDependencies(content);
-  const manifest = JSON.stringify({
-    name: `${scope}/${name}`,
-    version,
-    dependencies,
-    exports: "./index.mjs",
-  });
 
   response.setHeader("content-type", "application/octet-stream");
   response.setHeader("cache-control", "public, max-age=31536000, immutable");
@@ -80,6 +78,17 @@ createServer(async function (request, response) {
   const tarFile = join(cacheDir, `${scope}__${name}-${version}`);
 
   if (!existsSync(tarFile)) {
+    log("generating tarfile", scope, name);
+
+    const content = await readFile(file, "utf-8");
+    const dependencies = await findDependencies(content);
+    const manifest = JSON.stringify({
+      name: `${scope}/${name}`,
+      version,
+      dependencies,
+      exports: "./index.mjs",
+    });
+
     const tar = pack();
     tar.entry({ name: "package/package.json" }, manifest);
     tar.entry({ name: "package/index.mjs" }, content);
