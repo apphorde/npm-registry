@@ -3,5 +3,8 @@
     "@cloud-cli/http": "latest",
     "tar-stream": "^3.1.7",
     "acorn": "latest"
+  },
+  "scripts": {
+    "ci": "npm i"
   }
 }
