@@ -8,12 +8,12 @@ import {
   existsSync,
   statSync,
 } from "node:fs";
-import { readdir, readFile, writeFile } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
 
 const dataDir = process.env.DATA_PATH;
 const cacheDir = process.env.CACHE_PATH;
 const enableDebug = !!process.env.DEBUG;
-const validMethods = ["OPTIONS", "GET"];
+const validMethods = ["GET"];
 const log = enableDebug ? console.log : () => {};
 
 if (!cacheDir) {
