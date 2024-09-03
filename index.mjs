@@ -29,7 +29,7 @@ createServer(async function (request, response) {
   const url = new URL(request.url, "http://" + host);
 
   // NPM encodes the package name as /@foo%2fbar
-  const parts = decodeURIComponent(url.pathname).split("/");
+  const parts = decodeURIComponent(url.pathname.slice(1)).split("/");
 
   // [@foo, bar] => manifest
   // [@foo, bar, 0.1.0.tgz] => tarball
