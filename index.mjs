@@ -2,7 +2,12 @@ import createServer from "@cloud-cli/http";
 import { pack } from "tar-stream";
 import { parse as parseJS } from "acorn";
 import { join, parse } from "node:path";
-import { createReadStream, existsSync, statSync } from "node:fs";
+import {
+  createReadStream,
+  createWriteStream,
+  existsSync,
+  statSync,
+} from "node:fs";
 import { readdir, readFile, writeFile } from "node:fs/promises";
 
 const dataDir = process.env.DATA_PATH;
@@ -34,6 +39,7 @@ createServer(async function (request, response) {
   // [@foo, bar] => manifest
   // [@foo, bar, 0.1.0.tgz] => tarball
   const [scope, name, requestedVersion] = parts;
+  log("try", scope, name, requestedVersion);
 
   if (!validateScope(scope) && validatePackageName(name)) {
     log("invalid scope or package", scope, name);
@@ -54,6 +60,7 @@ createServer(async function (request, response) {
     response.setHeader("cache-control", "no-cache, no-store, max-age=0");
     response.setHeader("content-type", "application/json");
     response.end(JSON.stringify(manifest));
+    return;
   }
 
   // npm install @foo/bar
@@ -78,30 +85,34 @@ createServer(async function (request, response) {
   const tarFile = join(cacheDir, `${scope}__${name}-${version}`);
 
   if (!existsSync(tarFile)) {
-    log("generating tarfile", scope, name);
-
-    const content = await readFile(file, "utf-8");
-    const dependencies = await findDependencies(content);
-    const manifest = JSON.stringify({
-      name: `${scope}/${name}`,
-      version,
-      dependencies,
-      exports: "./index.mjs",
-    });
-
-    const tar = pack();
-    tar.entry({ name: "package/package.json" }, manifest);
-    tar.entry({ name: "package/index.mjs" }, content);
-    tar.finalize();
-
-    const buffer = Buffer.concat(await tar.toArray());
-    await writeFile(tarfile, buffer);
-    response.end(buffer);
-    return;
+    await generateTarFile(scope, name, version, file, tarFile);
   }
 
   createReadStream(tarFile).pipe(response);
 });
+
+async function generateTarFile(scope, name, version, source, tarFile) {
+  log("generating tarfile", scope, name);
+
+  const content = await readFile(source, "utf-8");
+  const dependencies = await findDependencies(content);
+  const manifest = JSON.stringify({
+    name: `${scope}/${name}`,
+    version,
+    dependencies,
+    exports: "./index.mjs",
+  });
+
+  const tar = pack();
+  const outputStream = createWriteStream(tarFile);
+  tar.pipe(outputStream);
+
+  tar.entry({ name: "package/package.json" }, manifest);
+  tar.entry({ name: "package/index.mjs" }, content);
+  tar.finalize();
+
+  return new Promise((ok) => outputStream.on("close", ok));
+}
 
 async function generateManifest(scope, name, host) {
   const folder = join(dataDir, scope, name);
