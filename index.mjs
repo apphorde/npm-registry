@@ -195,11 +195,11 @@ function notFound(response) {
 }
 
 function validateScope(scope) {
-  return scope && /^@[a-z]$/.test(String(scope));
+  return scope && /^@[a-z]+$/.test(String(scope));
 }
 
 function validatePackageName(name) {
-  return name && /^[a-z-]$/.test(String(name));
+  return name && /^[a-z-]+$/.test(String(name));
 }
 
 function validateVersion(name) {
