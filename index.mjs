@@ -121,18 +121,23 @@ async function generateTarFile(scope, name, version, source, tarFile) {
 
 async function generateManifest(scope, name, host) {
   const folder = join(dataDir, scope, name);
-  const packageName = `${scope}/${name}`;
-  const files = (await readdir(folder, { withFileTypes: true }))
-    .filter((f) => f.isFile())
-    .map((f) => parse(f.name).name)
-    .sort();
 
-  const validVersions = files.filter((f) => f !== "latest");
-
-  if (!files.length) {
+  if (!existsSync(folder)) {
     return null;
   }
 
+  const packageName = `${scope}/${name}`;
+  const validVersions = (await readdir(folder, { withFileTypes: true }))
+    .filter((f) => f.isFile())
+    .map((f) => parse(f.name).name)
+    .filter((v) => validateVersion(v))
+    .sort();
+
+  if (!validVersions.length) {
+    return null;
+  }
+
+  const latestVersion = validVersions[validVersions.length - 1];
   const versionDates = Object.fromEntries(
     validVersions.map((v) => [
       v,
@@ -140,7 +145,27 @@ async function generateManifest(scope, name, host) {
     ])
   );
 
-  const latestVersion = validVersions[validVersions.length - 1];
+  const versions = Object.fromEntries(
+    await Promise.all(
+      validVersions.map(async (version) => [
+        version,
+        {
+          name: packageName,
+          version,
+          description: "",
+          dist: {
+            tarball: new URL(
+              `/${scope}/${name}/${version}.tgz`,
+              "https://" + host
+            ).toString(),
+          },
+          dependencies: await findDependenciesFromFile(
+            join(folder, version + ".mjs")
+          ),
+        },
+      ])
+    )
+  );
 
   return {
     name: packageName,
@@ -148,27 +173,7 @@ async function generateManifest(scope, name, host) {
     "dist-tags": {
       latest: latestVersion,
     },
-    versions: Object.fromEntries(
-      await Promise.all(
-        validVersions.map(async (version) => [
-          version,
-          {
-            name: packageName,
-            version,
-            description: "",
-            dist: {
-              tarball: new URL(
-                `/${scope}/${name}/${version}.tgz`,
-                "https://" + host
-              ).toString(),
-            },
-            dependencies: await findDependenciesFromFile(
-              join(folder, version + ".mjs")
-            ),
-          },
-        ])
-      )
-    ),
+    versions,
     time: {
       created: versionDates[validVersions[0]],
       modified: versionDates[latestVersion],
@@ -202,6 +207,6 @@ function validatePackageName(name) {
   return name && /^[a-z-]+$/.test(String(name));
 }
 
-function validateVersion(name) {
-  return name && /^\d+\.\d+\.\d+$/.test(String(name));
+function validateVersion(version) {
+  return version && /^\d+\.\d+\.\d+$/.test(String(version));
 }
