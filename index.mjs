@@ -41,7 +41,7 @@ createServer(async function (request, response) {
   const [scope, name, requestedVersion] = parts;
   log("try", scope, name, requestedVersion);
 
-  if (!validateScope(scope) && validatePackageName(name)) {
+  if (!validateScope(scope) || validatePackageName(name)) {
     log("invalid scope or package", scope, name);
     return notFound(response);
   }
