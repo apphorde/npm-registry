@@ -142,7 +142,7 @@ async function generateManifest(scope, name, host) {
             description: "",
             dist: {
               tarball: new URL(
-                `/:npm/${scope}/${name}/${version}.tgz`,
+                `/${scope}/${name}/${version}.tgz`,
                 "https://" + host
               ).toString(),
             },
