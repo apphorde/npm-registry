@@ -88,7 +88,7 @@ createServer(async function (request, response) {
 
   const tarFile = join(cacheDir, `${scope}__${name}-${version}`);
 
-  if (!existsSync(tarFile)) {
+  if (!existsSync(tarFile) || version === '0.0.0') {
     await generateTarFile(scope, name, version, file, tarFile);
   }
 
