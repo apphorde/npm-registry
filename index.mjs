@@ -39,7 +39,6 @@ createServer(async function (request, response) {
   // [@foo, bar] => manifest
   // [@foo, bar, 0.1.0.tgz] => tarball
   const [scope, name, requestedVersion] = parts;
-  log("try", scope, name, requestedVersion);
 
   if (!validateScope(scope)) {
     log("invalid scope", scope);
@@ -191,8 +190,18 @@ async function findDependencies(content) {
   const ast = parseJS(content, { ecmaVersion: 2023, sourceType: "module" });
   const imports = ast.body.filter((n) => n.type === "ImportDeclaration");
   const names = imports.map((imp) => imp.source.value);
+  const dependencies = names
+    .filter((name) => !name.startsWith("node:"))
+    .map((name) => {
+      if (name.slice(1).includes('@')) {
+        const [left, right] = name.slice(1).split('@');
+        return [name.charAt(0) + left, right];
+      }
 
-  return Object.fromEntries(names.map((name) => [name, "latest"]));
+      return [name, "latest"]
+    });
+
+  return Object.fromEntries(dependencies);
 }
 
 function notFound(response) {
