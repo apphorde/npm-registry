@@ -209,7 +209,7 @@ function notFound(response) {
 }
 
 function validateScope(scope) {
-  return scope && /^@[a-z]+$/.test(String(scope));
+  return scope && /^@[a-z]+[a-z0-9-]+$/.test(String(scope));
 }
 
 function validatePackageName(name) {
